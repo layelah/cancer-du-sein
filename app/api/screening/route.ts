@@ -34,32 +34,34 @@ export async function POST(request: Request) {
         }
       }
 
-      const { error } = await supabase.from("screening_records").insert([
-        {
-          date: data.date,
-          screening_number: nextScreeningNumber.toString(),
-          last_name: data.lastName,
-          first_name: data.firstName,
-          age: Number.parseInt(data.age),
-          phone: data.phone,
-          address: data.address,
-          vaccination: data.vaccination === "oui",
-          mammography: data.mammography,
-          mammography_date: data.mammographyDate,
-          gyneco_consultation: data.gynecoConsultation === "oui",
-          gyneco_date: data.gynecoDate,
-          fcu: data.fcu || false,
-          fcu_location: data.fcuLocation,
-          has_additional_exams: data.hasAdditionalExams,
-          hpv: data.hpv || false,
-          mammary_ultrasound: data.mammaryUltrasound || false,
-          thermo_ablation: data.thermoAblation || false,
-          anapath: data.anapath || false,
-        },
-      ])
+      const insertData = {
+        date: data.date,
+        screening_number: nextScreeningNumber.toString(),
+        last_name: data.lastName,
+        first_name: data.firstName,
+        age: Number.parseInt(data.age),
+        phone: data.phone,
+        address: data.address,
+        vaccination: data.vaccination === "oui",
+        mammography: data.mammography,
+        mammography_date: data.mammographyDate,
+        gyneco_consultation: data.gynecoConsultation === "oui",
+        gyneco_date: data.gynecoDate,
+        fcu: data.fcu || false,
+        fcu_location: data.fcuLocation,
+        hpv: data.hpv || false,
+        mammary_ultrasound: data.mammaryUltrasound || false,
+        thermo_ablation: data.thermoAblation || false,
+        anapath: data.anapath || false,
+      }
+
+      console.log("Inserting data:", JSON.stringify(insertData, null, 2))
+
+      const { error } = await supabase.from("screening_records").insert([insertData])
 
       if (error) {
-        throw new Error("Supabase insert error")
+        console.error("Supabase insert error details:", error)
+        throw new Error(`Supabase insert error: ${error.message}`)
       }
 
       return NextResponse.json({ 
@@ -85,7 +87,6 @@ export async function POST(request: Request) {
         gyneco_date: data.gynecoDate,
         fcu: data.fcu || false,
         fcu_location: data.fcuLocation,
-        has_additional_exams: data.hasAdditionalExams,
         hpv: data.hpv || false,
         mammary_ultrasound: data.mammaryUltrasound || false,
         thermo_ablation: data.thermoAblation || false,

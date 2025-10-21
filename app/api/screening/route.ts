@@ -8,6 +8,10 @@ export async function POST(request: Request) {
 
     // Essayer d'utiliser Supabase d'abord, sinon utiliser les données mockées
     try {
+      console.log("Attempting to connect to Supabase...")
+      console.log("SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL)
+      console.log("SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY ? "Present" : "Missing")
+      
       const supabase = await createServerClient()
 
       // Générer le numéro de dépistage chronologique automatiquement
@@ -65,6 +69,7 @@ export async function POST(request: Request) {
     } catch (supabaseError) {
       // Fallback vers les données mockées
       console.log("[DEMO] Using mock data instead of Supabase")
+      console.log("Supabase error:", supabaseError)
       
       const { data: result, error } = await mockSupabase.createScreening({
         date: data.date,

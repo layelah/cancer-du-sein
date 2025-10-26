@@ -246,7 +246,7 @@ export default function RecordDetailPage() {
                     <p className="font-medium">
                       {screening.first_name} {screening.last_name}
                     </p>
-                    <p className="text-sm text-gray-600">{screening.age} ans</p>
+                    <p className="text-sm text-gray-600">{screening.age === 0 ? "Non renseigné" : `${screening.age} ans`}</p>
                   </div>
                 </div>
 

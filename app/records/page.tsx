@@ -190,12 +190,18 @@ export default function RecordsPage() {
     if (!editingScreening) return
 
     try {
+      // S'assurer que age est 0 si null ou undefined
+      const dataToSend = {
+        ...editingScreening,
+        age: editingScreening.age ?? 0
+      }
+      
       const response = await fetch(`/api/screening/${editingScreening.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(editingScreening),
+        body: JSON.stringify(dataToSend),
       })
 
       if (response.ok) {
@@ -226,7 +232,7 @@ export default function RecordsPage() {
       "Date": new Date(screening.date).toLocaleDateString("fr-FR"),
       "Nom": screening.last_name,
       "Prénom": screening.first_name,
-      "Âge": screening.age,
+      "Âge": screening.age === 0 ? "Non renseigné" : screening.age,
       "Téléphone": screening.phone,
       "Adresse": screening.address,
       "Vaccination": screening.vaccination ? "Oui" : "Non",
@@ -343,7 +349,7 @@ export default function RecordsPage() {
                         <TableCell className="font-medium text-pink-600">{startIndex + index + 1}</TableCell>
                         <TableCell className="font-medium">{screening.last_name}</TableCell>
                         <TableCell>{screening.first_name}</TableCell>
-                        <TableCell>{screening.age} ans</TableCell>
+                        <TableCell>{screening.age === 0 ? "Non renseigné" : `${screening.age} ans`}</TableCell>
                         <TableCell className="font-mono text-sm">{screening.phone}</TableCell>
                         <TableCell className="text-sm text-gray-600">
                           {new Date(screening.date).toLocaleDateString("fr-FR")}

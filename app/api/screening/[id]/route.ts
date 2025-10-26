@@ -55,7 +55,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         date: data.date,
         last_name: data.last_name,
         first_name: data.first_name,
-        age: data.age ? Number.parseInt(data.age.toString()) : null,
+        age: data.age && data.age.toString().trim() !== "" ? Number.parseInt(data.age.toString()) : 0,
         phone: data.phone,
         address: data.address,
         vaccination: data.vaccination,

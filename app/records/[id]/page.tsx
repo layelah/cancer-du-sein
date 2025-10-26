@@ -31,9 +31,14 @@ interface Screening {
   phone: string
   address: string
   vaccination: boolean
+  screening: boolean
   mammography: string
+  mammography_date?: string
   gyneco_consultation: boolean
+  gyneco_date?: string
   fcu: boolean
+  fcu_location?: string
+  has_additional_exams?: string
   hpv: boolean
   mammary_ultrasound: boolean
   thermo_ablation: boolean
@@ -280,6 +285,19 @@ export default function RecordDetailPage() {
                     className={screening.vaccination ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}
                   >
                     {screening.vaccination ? "Oui" : "Non"}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-pink-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-pink-600" />
+                    <span className="text-sm font-medium">Dépistage</span>
+                  </div>
+                  <Badge
+                    variant={screening.screening ? "default" : "secondary"}
+                    className={screening.screening ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}
+                  >
+                    {screening.screening ? "Oui" : "Non"}
                   </Badge>
                 </div>
 

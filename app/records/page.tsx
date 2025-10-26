@@ -9,9 +9,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
-import { Loader2, Trash2, Download, ChevronLeft, ChevronRight } from "lucide-react"
+import { Loader2, Trash2, Download, ChevronLeft, ChevronRight, Edit } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ToastContainer } from "@/components/ui/toast"
 import Image from "next/image"
 import * as XLSX from "xlsx"
+
+interface ToastMessage {
+  id: string
+  message: string
+  type: "success" | "error" | "warning" | "info"
+}
 
 interface Screening {
   id: string
@@ -23,6 +34,7 @@ interface Screening {
   phone: string
   address: string
   vaccination: boolean
+  screening: boolean
   mammography: string
   mammography_date?: string
   gyneco_consultation: boolean
@@ -42,6 +54,10 @@ export default function RecordsPage() {
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   
+  // Editing state
+  const [editingScreening, setEditingScreening] = useState<Screening | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
@@ -59,6 +75,7 @@ export default function RecordsPage() {
     message: "",
     type: "info"
   })
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
   const router = useRouter()
 
   // Function to show modal
@@ -75,6 +92,17 @@ export default function RecordsPage() {
   // Function to close modal
   const closeModal = () => {
     setModal(prev => ({ ...prev, isOpen: false }))
+  }
+
+  // Function to show toast
+  const showToast = (message: string, type: "success" | "error" | "warning" | "info" = "info") => {
+    const id = Date.now().toString()
+    setToasts((prev) => [...prev, { id, message, type }])
+  }
+
+  // Function to remove toast
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id))
   }
 
   useEffect(() => {
@@ -126,22 +154,19 @@ export default function RecordsPage() {
 
       if (response.ok) {
         setScreenings(screenings.filter((s) => s.id !== id))
-        showModal(
-          "Suppression réussie",
-          "L'enregistrement a été supprimé avec succès.",
+        showToast(
+          "Enregistrement supprimé avec succès",
           "success"
         )
       } else {
-        showModal(
-          "Erreur de suppression",
-          "Une erreur est survenue lors de la suppression. Veuillez réessayer.",
+        showToast(
+          "Erreur lors de la suppression. Veuillez réessayer.",
           "error"
         )
       }
     } catch (error) {
-      showModal(
-        "Erreur de suppression",
-        "Une erreur est survenue lors de la suppression. Veuillez vérifier votre connexion et réessayer.",
+      showToast(
+        "Erreur lors de la suppression. Veuillez vérifier votre connexion et réessayer.",
         "error"
       )
     } finally {
@@ -149,11 +174,55 @@ export default function RecordsPage() {
     }
   }
 
+  // Editing functions
+  const handleEdit = (e: React.MouseEvent, screening: Screening) => {
+    e.stopPropagation()
+    setEditingScreening(screening)
+    setIsEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingScreening(null)
+    setIsEditing(false)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingScreening) return
+
+    try {
+      const response = await fetch(`/api/screening/${editingScreening.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(editingScreening),
+      })
+
+      if (response.ok) {
+        setScreenings(screenings.map(s => s.id === editingScreening.id ? editingScreening : s))
+        showToast(
+          "Enregistrement modifié avec succès",
+          "success"
+        )
+        handleCancelEdit()
+      } else {
+        showToast(
+          "Erreur lors de la modification. Veuillez réessayer.",
+          "error"
+        )
+      }
+    } catch (error) {
+      showToast(
+        "Erreur lors de la modification. Veuillez vérifier votre connexion et réessayer.",
+        "error"
+      )
+    }
+  }
+
   // Export to Excel function
   const exportToExcel = () => {
     const dataToExport = screenings.map((screening, index) => ({
       "N°": index + 1,
-      "N° Dépistage": screening.screening_number,
       "Date": new Date(screening.date).toLocaleDateString("fr-FR"),
       "Nom": screening.last_name,
       "Prénom": screening.first_name,
@@ -161,6 +230,7 @@ export default function RecordsPage() {
       "Téléphone": screening.phone,
       "Adresse": screening.address,
       "Vaccination": screening.vaccination ? "Oui" : "Non",
+      "Dépistage": screening.screening ? "Oui" : "Non",
       "Mammographie": screening.mammography,
       "Date Mammographie": screening.mammography_date ? new Date(screening.mammography_date).toLocaleDateString("fr-FR") : "",
       "Consultation Gynécologique": screening.gyneco_consultation ? "Oui" : "Non",
@@ -253,7 +323,6 @@ export default function RecordsPage() {
                   <TableHeader>
                     <TableRow className="bg-pink-50 hover:bg-pink-50">
                       <TableHead className="font-semibold text-pink-800">#</TableHead>
-                      <TableHead className="font-semibold text-pink-800">N° Dépistage</TableHead>
                       <TableHead className="font-semibold text-pink-800">Nom</TableHead>
                       <TableHead className="font-semibold text-pink-800">Prénom</TableHead>
                       <TableHead className="font-semibold text-pink-800">Âge</TableHead>
@@ -272,7 +341,6 @@ export default function RecordsPage() {
                         className="cursor-pointer hover:bg-pink-50 transition-colors"
                       >
                         <TableCell className="font-medium text-pink-600">{startIndex + index + 1}</TableCell>
-                        <TableCell className="font-mono text-sm">{screening.screening_number}</TableCell>
                         <TableCell className="font-medium">{screening.last_name}</TableCell>
                         <TableCell>{screening.first_name}</TableCell>
                         <TableCell>{screening.age} ans</TableCell>
@@ -296,19 +364,29 @@ export default function RecordsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            onClick={(e) => handleDelete(e, screening.id)}
-                            disabled={deletingId === screening.id}
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            {deletingId === screening.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={(e) => handleEdit(e, screening)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              onClick={(e) => handleDelete(e, screening.id)}
+                              disabled={deletingId === screening.id}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              {deletingId === screening.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -369,6 +447,381 @@ export default function RecordsPage() {
           </CardContent>
         </Card>
 
+        {/* Edit Modal */}
+        {isEditing && editingScreening && (
+          <Modal
+            isOpen={isEditing}
+            onClose={handleCancelEdit}
+            title="Modifier l'enregistrement"
+            message=""
+            type="info"
+            showCancelButton={true}
+            onConfirm={handleSaveEdit}
+            confirmText="Enregistrer"
+            cancelText="Annuler"
+          >
+            <div className="space-y-4 sm:space-y-6 overflow-y-auto pr-2">
+              {/* Informations personnelles */}
+              <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 bg-gradient-to-r from-accent/20 to-accent/10 rounded-2xl border border-primary/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-6 gradient-primary rounded-full"></div>
+                  <h3 className="text-xl font-bold text-foreground">Coordonnées Personnelles</h3>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-date" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-primary rounded-full pulse-glow"></div>
+                      Date
+                    </Label>
+                    <Input
+                      id="edit-date"
+                      type="date"
+                      value={editingScreening.date}
+                      onChange={(e) => setEditingScreening({ ...editingScreening, date: e.target.value })}
+                      className="h-12 border-2 border-primary/20 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-age" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-chart-3 rounded-full pulse-glow"></div>
+                      Âge
+                    </Label>
+                    <Input
+                      id="edit-age"
+                      type="number"
+                      value={editingScreening.age}
+                      onChange={(e) => setEditingScreening({ ...editingScreening, age: parseInt(e.target.value) || 0 })}
+                      className="h-12 border-2 border-primary/20 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300 rounded-xl"
+                    />
+                </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-last-name" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-chart-1 rounded-full pulse-glow"></div>
+                      Nom
+                    </Label>
+                  <Input
+                    id="edit-last-name"
+                    value={editingScreening.last_name}
+                    onChange={(e) => setEditingScreening({ ...editingScreening, last_name: e.target.value })}
+                      className="h-12 border-2 border-primary/20 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300 rounded-xl"
+                  />
+                </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-first-name" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-chart-2 rounded-full pulse-glow"></div>
+                      Prénom
+                    </Label>
+                  <Input
+                    id="edit-first-name"
+                    value={editingScreening.first_name}
+                    onChange={(e) => setEditingScreening({ ...editingScreening, first_name: e.target.value })}
+                      className="h-12 border-2 border-primary/20 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300 rounded-xl"
+                  />
+                </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-phone" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-chart-4 rounded-full pulse-glow"></div>
+                      Téléphone
+                    </Label>
+                  <Input
+                    id="edit-phone"
+                    value={editingScreening.phone}
+                    onChange={(e) => setEditingScreening({ ...editingScreening, phone: e.target.value })}
+                      className="h-12 border-2 border-primary/20 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300 rounded-xl"
+                  />
+                </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-address" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-chart-5 rounded-full pulse-glow"></div>
+                      Adresse
+                    </Label>
+                  <Input
+                    id="edit-address"
+                    value={editingScreening.address}
+                    onChange={(e) => setEditingScreening({ ...editingScreening, address: e.target.value })}
+                      className="h-12 border-2 border-primary/20 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300 rounded-xl"
+                  />
+                  </div>
+                </div>
+              </div>
+
+              {/* Informations médicales */}
+              <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 bg-gradient-to-r from-accent/20 to-accent/10 rounded-2xl border border-primary/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-6 gradient-primary rounded-full"></div>
+                  <h3 className="text-xl font-bold text-foreground">Consultations et Vaccination</h3>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-chart-1 rounded-full pulse-glow"></div>
+                      Vaccination
+                    </Label>
+                  <RadioGroup
+                    value={editingScreening.vaccination ? "oui" : "non"}
+                    onValueChange={(value) => setEditingScreening({ ...editingScreening, vaccination: value === "oui" })}
+                    className="flex gap-6 mt-2"
+                  >
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="oui"
+                          id="edit-vaccination-oui"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-vaccination-oui" className="cursor-pointer text-sm font-medium text-pink-800">
+                          Oui
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="non"
+                          id="edit-vaccination-non"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-vaccination-non" className="cursor-pointer text-sm font-medium text-pink-800">
+                          Non
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-chart-2 rounded-full pulse-glow"></div>
+                      Consultation Gynécologique
+                    </Label>
+                    <RadioGroup
+                      value={editingScreening.gyneco_consultation ? "oui" : "non"}
+                      onValueChange={(value) => setEditingScreening({ ...editingScreening, gyneco_consultation: value === "oui" })}
+                      className="flex gap-6 mt-2"
+                    >
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="oui"
+                          id="edit-gyneco-oui"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-gyneco-oui" className="cursor-pointer text-sm font-medium text-pink-800">
+                          Oui
+                        </Label>
+                    </div>
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="non"
+                          id="edit-gyneco-non"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-gyneco-non" className="cursor-pointer text-sm font-medium text-pink-800">
+                          Non
+                        </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-chart-3 rounded-full pulse-glow"></div>
+                      Dépistage
+                    </Label>
+                  <RadioGroup
+                    value={editingScreening.screening ? "oui" : "non"}
+                    onValueChange={(value) => setEditingScreening({ ...editingScreening, screening: value === "oui" })}
+                    className="flex gap-6 mt-2"
+                  >
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="oui"
+                          id="edit-screening-oui"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-screening-oui" className="cursor-pointer text-sm font-medium text-pink-800">
+                          Oui
+                        </Label>
+                    </div>
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="non"
+                          id="edit-screening-non"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-screening-non" className="cursor-pointer text-sm font-medium text-pink-800">
+                          Non
+                        </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 bg-chart-3 rounded-full pulse-glow"></div>
+                      Mammographie
+                    </Label>
+                    <RadioGroup
+                    value={editingScreening.mammography}
+                      onValueChange={(value) => setEditingScreening({ ...editingScreening, mammography: value })}
+                      className="flex gap-6 mt-2"
+                    >
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="oui"
+                          id="edit-mammography-oui"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-mammography-oui" className="cursor-pointer text-sm font-medium text-pink-800">
+                          Oui
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="non"
+                          id="edit-mammography-non"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-mammography-non" className="cursor-pointer text-sm font-medium text-pink-800">
+                          Non
+                        </Label>
+                </div>
+                    </RadioGroup>
+
+                    {editingScreening.mammography === "oui" && (
+                      <div className="space-y-2 pl-6 border-l-2 border-primary/30 bg-primary/5 p-4 rounded-xl mt-3">
+                        <Label htmlFor="edit-mammography-date" className="text-sm font-semibold text-foreground">
+                          Date de Rendez-vous
+                        </Label>
+                    <Input
+                      id="edit-mammography-date"
+                      type="date"
+                          value={editingScreening.mammography_date || ""}
+                      onChange={(e) => setEditingScreening({ ...editingScreening, mammography_date: e.target.value })}
+                          className="h-12 border-2 border-primary/20 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300 rounded-xl max-w-xs"
+                    />
+                  </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Examens complémentaires */}
+              <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 bg-gradient-to-r from-secondary/30 to-secondary/10 rounded-2xl border border-primary/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-6 gradient-primary rounded-full"></div>
+                  <h3 className="text-xl font-bold text-foreground">Examens Complémentaires</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                  <Checkbox
+                    id="edit-hpv"
+                    checked={editingScreening.hpv}
+                    onCheckedChange={(checked) => setEditingScreening({ ...editingScreening, hpv: checked as boolean })}
+                      className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                  />
+                    <Label htmlFor="edit-hpv" className="cursor-pointer text-sm font-medium text-pink-800">
+                      HPV
+                    </Label>
+                </div>
+
+                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                  <Checkbox
+                    id="edit-ultrasound"
+                    checked={editingScreening.mammary_ultrasound}
+                    onCheckedChange={(checked) => setEditingScreening({ ...editingScreening, mammary_ultrasound: checked as boolean })}
+                      className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                  />
+                    <Label htmlFor="edit-ultrasound" className="cursor-pointer text-sm font-medium text-pink-800">
+                      Échographie Mammaire
+                    </Label>
+                </div>
+
+                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                  <Checkbox
+                    id="edit-thermo"
+                    checked={editingScreening.thermo_ablation}
+                    onCheckedChange={(checked) => setEditingScreening({ ...editingScreening, thermo_ablation: checked as boolean })}
+                      className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                  />
+                    <Label htmlFor="edit-thermo" className="cursor-pointer text-sm font-medium text-pink-800">
+                      Thermo Ablation
+                    </Label>
+                </div>
+
+                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                    <Checkbox
+                      id="edit-anapath"
+                      checked={editingScreening.anapath}
+                      onCheckedChange={(checked) => setEditingScreening({ ...editingScreening, anapath: checked as boolean })}
+                      className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                    />
+                    <Label htmlFor="edit-anapath" className="cursor-pointer text-sm font-medium text-pink-800">
+                      Anapath
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                    <Checkbox
+                      id="edit-fcu"
+                      checked={editingScreening.fcu}
+                      onCheckedChange={(checked) => {
+                        setEditingScreening({ 
+                          ...editingScreening, 
+                          fcu: checked as boolean,
+                          fcu_location: checked ? (editingScreening.fcu_location || "") : undefined
+                        })
+                      }}
+                      className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                    />
+                    <Label htmlFor="edit-fcu" className="cursor-pointer text-sm font-medium text-pink-800">
+                      FCU (Frottis Cervico-Utérin)
+                    </Label>
+                  </div>
+                </div>
+
+                {editingScreening.fcu && (
+                  <div className="space-y-2 p-4 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-xl">
+                    <Label className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 bg-primary rounded-full pulse-glow"></div>
+                      Lieu d'examen FCU
+                    </Label>
+                    <RadioGroup
+                      value={editingScreening.fcu_location || ""}
+                      onValueChange={(value) => setEditingScreening({ ...editingScreening, fcu_location: value })}
+                      className="flex gap-6"
+                    >
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="SAR"
+                          id="edit-fcu-sar"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-fcu-sar" className="cursor-pointer text-sm font-medium text-pink-800">
+                          SAR
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-lg hover:from-pink-100 hover:to-rose-100 hover:border-pink-300 transition-all duration-300">
+                        <RadioGroupItem
+                          value="Ailleurs"
+                          id="edit-fcu-ailleurs"
+                          className="w-5 h-5 border-2 border-pink-300 data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500 data-[state=checked]:text-white"
+                        />
+                        <Label htmlFor="edit-fcu-ailleurs" className="cursor-pointer text-sm font-medium text-pink-800">
+                          Ailleurs
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Modal>
+        )}
+
         {/* Modal */}
         <Modal
           isOpen={modal.isOpen}
@@ -381,6 +834,8 @@ export default function RecordsPage() {
           cancelText="Annuler"
           showCancelButton={modal.type === "warning"}
         />
+
+        <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
       </div>
     </div>
   )

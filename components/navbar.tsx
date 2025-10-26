@@ -38,7 +38,7 @@ export function Navbar() {
                 <span className="sm:hidden">Dépistage</span>
               </span>
               <span className="text-xs text-muted-foreground -mt-1 hidden sm:block">
-                Octobre Rose 2024
+                Octobre Rose 2025
               </span>
             </div>
           </Link>

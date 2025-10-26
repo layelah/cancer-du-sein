@@ -10,6 +10,7 @@ export interface MockScreening {
   phone: string
   address: string
   vaccination: boolean
+  screening: boolean
   mammography: string
   mammography_date?: string
   gyneco_consultation: boolean
@@ -36,6 +37,7 @@ let mockScreenings: MockScreening[] = [
     phone: "0123456789",
     address: "123 Rue de la Paix, Paris",
     vaccination: true,
+    screening: true,
     mammography: "oui",
     mammography_date: "2024-01-20",
     gyneco_consultation: true,
@@ -59,6 +61,7 @@ let mockScreenings: MockScreening[] = [
     phone: "0987654321",
     address: "456 Avenue des Champs, Lyon",
     vaccination: false,
+    screening: false,
     mammography: "non",
     gyneco_consultation: true,
     gyneco_date: "2024-01-12",
